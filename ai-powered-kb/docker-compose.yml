@@ -1,0 +1,31 @@
+version: "3.8"
+
+services:
+  db:
+    image: ankane/pgvector:latest
+    container_name: ai_pgvector_db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: ai_knowledge_base
+    ports:
+      - "5432:5432"
+    networks:
+      - pgnetwork
+
+  pgadmin:
+    image: dpage/pgadmin4
+    container_name: test-pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@admin.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+    ports:
+      - "15432:80"
+    depends_on:
+      - db
+    networks:
+      - pgnetwork
+
+networks:
+  pgnetwork:
+    driver: bridge
