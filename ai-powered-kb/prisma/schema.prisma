@@ -1,0 +1,118 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  shadowDatabaseUrl = env("SHADOW_DATABASE_URL") 
+}
+
+enum Role {
+  user
+  assistant
+  system
+}
+
+model User {
+  id            String            @id @default(uuid())
+  email         String            @unique
+  name          String?
+  memberships   WorkspaceMember[]
+  ownedWorkspaces Workspace[]     @relation("UserOwnedWorkspaces")
+  createdAt     DateTime          @default(now())
+}
+
+model Workspace {
+  id            String            @id @default(uuid())
+  name          String
+  owner         User              @relation("UserOwnedWorkspaces", fields: [ownerId], references: [id])
+  ownerId       String
+  documents     Document[]
+  chats         Chat[]
+  members       WorkspaceMember[]
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+
+  @@index([ownerId])
+}
+
+model WorkspaceMember {
+  id          String    @id @default(uuid())
+  user        User      @relation(fields: [userId], references: [id])
+  userId      String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id])
+  workspaceId String
+  role        String // "owner", "editor", "viewer"
+  createdAt   DateTime  @default(now())
+
+  @@unique([userId, workspaceId])
+  @@map("workspace_member")
+}
+
+model Document {
+  id          String          @id @default(uuid())
+  title       String?
+  content     String?
+  workspace   Workspace       @relation(fields: [workspaceId], references: [id])
+  workspaceId String
+  chunks      DocumentChunk[]
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  @@index([workspaceId]) // get all documents in workspace
+}
+
+model DocumentChunk {
+  id         String     @id @default(uuid())
+  document   Document   @relation(fields: [documentId], references: [id])
+  documentId String
+  chunkIndex Int
+  content    String
+  embedding  Embedding?
+  createdAt  DateTime   @default(now())
+
+  @@index([documentId]) // to get all chunks for a doc
+  @@map("document_chunk")
+}
+
+model Embedding {
+  id        String                      @id @default(uuid())
+  chunk     DocumentChunk               @relation(fields: [chunkId], references: [id])
+  chunkId   String
+  vector    Unsupported("vector(1536)")
+  metadata  Json?
+  createdAt DateTime                    @default(now())
+
+  @@unique([chunkId])
+}
+
+model Chat {
+  id          String    @id @default(uuid())
+  workspace   Workspace @relation(fields: [workspaceId], references: [id])
+  workspaceId String
+  messages    Message[]
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([workspaceId])
+}
+
+model Message {
+  id        String   @id @default(uuid())
+  chat      Chat     @relation(fields: [chatId], references: [id])
+  chatId    String
+  role      Role
+  content   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([chatId, createdAt])
+}
